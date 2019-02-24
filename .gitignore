@@ -1,3 +1,8 @@
+*~
+Makefile.in
+Makefile
+clsrc/Makefile.in
+
 # Prerequisites
 *.d
 
