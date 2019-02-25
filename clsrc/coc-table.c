@@ -1517,7 +1517,8 @@ coc_table_s coc_table[] = {
 double
 coc_table_coc (const int val)
 {
-  return (val >= 0 && val < sizeof(coc_table) / sizeof(coc_table_s)) ? coc_table[val].coc : -1;
+  return (val >= 0 && val < sizeof(coc_table) / sizeof(coc_table_s))
+    ? coc_table[val].coc : -1;
 }
 
 void

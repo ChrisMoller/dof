@@ -48,6 +48,67 @@ compute (double coc, double fl, double near, double far)
   return N;
 }
 
+static void
+show_help (const char *app)
+{
+  fprintf (stderr, "\nUsage: %s [opts] fl near far\n", app);
+  fprintf (stderr, "\nwhere\n");
+  fprintf (stderr, "\tfl is the focal length of the lens, in millimetres,\n");
+  fprintf (stderr, "\tnear is the near distance of the depth of field,\n");
+  fprintf (stderr, "\tfar is the far distance of the depth of field.\n");
+  fprintf (stderr, "\n");
+  fprintf (stderr, "\nopts:\n");
+  fprintf (stderr, "\t-i, --inch  \tInterpret dimensionless near and far distances as inches.\n");
+  fprintf (stderr, "\t-f, --feet  \t... feet.\n");
+  fprintf (stderr, "\t-m, --mm    \t... millimetres.\n");
+  fprintf (stderr, "\t-c, --cm    \t... centimetres.\n");
+  fprintf (stderr, "\t-M, --metres\t... metres.\n");
+  fprintf (stderr, "\n");
+  fprintf (stderr, "\t\tThe default unit is centimetres.\n");
+  fprintf (stderr, "\n");
+  fprintf (stderr, "\t-o <arg>, --coc <arg>\tSet the \"circle of confusion\" value.\n");
+  fprintf (stderr, "\n");
+  fprintf (stderr, "\t\tThe default CoC is 0.019.\n");
+  fprintf (stderr, "\n");
+  fprintf (stderr, "\t--list-all\t\tList all supported cameras.\n");
+  fprintf (stderr, "\t--list-maker <arg>\tList all supported cameras of the given \
+manufacturer.\n");
+  fprintf (stderr, "\t--list-model <arg>\tList all supported cameras of the given \
+model.\n");
+  fprintf (stderr, "\t\t\t\t--list-maker and --list-model can be used in conjunction.\n");
+  fprintf (stderr, "\t-q, --query\tUsed with --list-maker and/or --list-model, allows\
+the user to specify a camera for which the DOF is to be computed..\n");
+  fprintf (stderr, "\n");
+  fprintf (stderr, "Examples:");
+  fprintf (stderr, "\n\t$dof 55 66 71\n");
+  fprintf (stderr, "\t[0.019](55 660 710) => 8.49395\n");
+  fprintf (stderr, "\n");
+  fprintf (stderr, "The format of the result is:\n");
+  fprintf (stderr, "\n\t[coc](fl nd fd) ==> A\n");
+  fprintf (stderr, "\nwhere\n");
+  fprintf (stderr, "\n\tCoc is the circle of confusion value of the camera in use,\n");
+  fprintf (stderr, "\tfl is the focal length of the lens,\n");
+  fprintf (stderr, "\tnd is the near distance, in millimetres, of the depth of field,\n");
+  fprintf (stderr, "\tfd is the far distance, in millimetres, of the depth of field.\n");
+  fprintf (stderr, "\n");
+  fprintf (stderr, "The near and far distances can be appended with any of the units.\n");
+  fprintf (stderr, "i, f, m, c, or M for inches, feet, millimetres, centimetres, or\n");
+  fprintf (stderr, "metres respectively.  These override any units set by options:\n");
+  fprintf (stderr, "\n\t$dof 55 26i 28i\n");
+  fprintf (stderr, "\t[0.019](55 660.4 711.2) => 8.61007\n");
+  fprintf (stderr, "\n");
+  fprintf (stderr, "The CoC value is a charcteristic of the various cameras and --list options \
+can be used to select a camera:");
+  fprintf (stderr, "\n");
+  fprintf (stderr, "\n\t$dof -q --list-make Canon --list-model xs\n");
+  fprintf (stderr, "\t  32: \"Canon\" \"Digital Rebel XS / 1000D\" 0.019\n");
+  fprintf (stderr, "\t  35: \"Canon\" \"Digital Rebel XSi / 450D\" 0.019\n");
+  fprintf (stderr, "\tEnter camera ID:\n");
+  fprintf (stderr, "\n");
+  fprintf (stderr, "The Coc, whether supplied by the -o or --coc options or through\n");
+  fprintf (stderr, "camera selection, is saved across invocations.\n");
+}
+
 int
 main (int argc, char *argv[], char * env[])
 {
@@ -77,35 +138,36 @@ main (int argc, char *argv[], char * env[])
     }
     free (cfg_dir);
   }
-  
+
+  extern char *optarg;
   int query   = 0;
-  char *make  = NULL;
+  char *maker  = NULL;
   char *model = NULL;
   double parms[3] = {NAN, NAN, INFINITY};
 #define fl   parms[0]
 #define near parms[1]
 #define far  parms[2]
-  units_e near_units = UNITS_INCHES;
-  units_e far_units  = UNITS_INCHES;
+  units_e near_units = UNITS_CM;
+  units_e far_units  = UNITS_CM;
   {
     int err = 0;
     struct option long_opts[] =
       {
-       {"feet",  no_argument, NULL, 'f'},
-       {"inch",  no_argument, NULL, 'i'},
-       {"mm",    no_argument, NULL, 'm'},
-       {"cm",    no_argument, NULL, 'c'},
-       {"m",     no_argument, NULL, 'M'},
-       {"q",     no_argument, NULL, 'q'},
-       {"coc",   required_argument, NULL, 'o'},
+       {"inch",   no_argument, NULL, 'i'},
+       {"feet",   no_argument, NULL, 'f'},
+       {"mm",     no_argument, NULL, 'm'},
+       {"cm",     no_argument, NULL, 'c'},
+       {"metres", no_argument, NULL, 'M'},
+       {"query",  no_argument, NULL, 'q'},
+       {"coc",    required_argument, NULL, 'o'},
        {"list-all",   no_argument, NULL, 'L'},
-       {"list-make",  required_argument, NULL, 'C'},
+       {"list-maker",  required_argument, NULL, 'C'},
        {"list-model", required_argument, NULL, 'T'},
        {0, 0, 0, 0}
       };
     int c;
     int idx;
-    while (-1 != (c = getopt_long (argc, argv, "ifmcMq", long_opts, &idx))) {
+    while (-1 != (c = getopt_long (argc, argv, "ifmcMo:q", long_opts, &idx))) {
       switch (c) {
       case 'i': near_units = far_units = UNITS_INCHES;	break;
       case 'f': near_units = far_units = UNITS_FT;	break;
@@ -113,17 +175,27 @@ main (int argc, char *argv[], char * env[])
       case 'c': near_units = far_units = UNITS_CM;	break;
       case 'M': near_units = far_units = UNITS_M;	break;
       case 'o': coc = atof (optarg);	break;
-      case 'q': query = 1l; break;
+      case 'q': query = 1; break;
       case 'L': list_all (NULL, NULL);    err = 2; break;
-      case 'C': if (make)  free (make);  make  = strdup (optarg); break;
-      case 'T': if (model) free (model); model = strdup (optarg); break;
+      case 'C':
+	{
+	  //	  if (maker)  free (maker);
+	  maker  = strdupa (optarg);
+	}
+	break;
+      case 'T':
+	{
+	  //	  if (model) free (model);
+	  model = strdupa (optarg);
+	}
+	break;
       case '?': err = 1; break;
       }
     }
-    if (make || model) {
-      list_all (make, model);
+    if (query || maker || model) {
+      list_all (maker, model);
       if (query) {
-	fprintf (stdout, "Enter camer ID: ");
+	fprintf (stdout, "Enter camera ID: ");
 	fflush (stdout);
 	int val = -1;
 	int rc = fscanf (stdin, " %d", &val);
@@ -140,7 +212,7 @@ main (int argc, char *argv[], char * env[])
     
     switch (err) {
     case 1:
-      fprintf (stderr, "error: %s [opts] fl near far\n", argv[0]);
+      show_help (argv[0]);
       // fall through
     case 2:
       exit (1);
@@ -160,10 +232,10 @@ main (int argc, char *argv[], char * env[])
 	  if (ep && *ep != 0 && ep != argv[optind]) {
 	    switch (*ep) {
 	    case 'i': units = UNITS_INCHES;	break;
-	    case 'f': units = UNITS_FT;	break;
-	    case 'm': units = UNITS_MM;	break;
-	    case 'c': units = UNITS_CM;	break;
-	    case 'M': units = UNITS_M;	break;
+	    case 'f': units = UNITS_FT;		break;
+	    case 'm': units = UNITS_MM;		break;
+	    case 'c': units = UNITS_CM;		break;
+	    case 'M': units = UNITS_M;		break;
 	    }
 	    switch(px) {
 	    case 1: near_units = units; break;
