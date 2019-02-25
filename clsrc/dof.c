@@ -78,6 +78,7 @@ model.\n");
   fprintf (stderr, "\t\t\t\t--list-maker and --list-model can be used in conjunction.\n");
   fprintf (stderr, "\t-q, --query\tUsed with --list-maker and/or --list-model, allows\
 the user to specify a camera for which the DOF is to be computed..\n");
+  fprintf (stderr, "\t-V\t\tShow version and quit.\n");
   fprintf (stderr, "\n");
   fprintf (stderr, "Examples:");
   fprintf (stderr, "\n\t$dof 55 66 71\n");
@@ -167,7 +168,7 @@ main (int argc, char *argv[], char * env[])
       };
     int c;
     int idx;
-    while (-1 != (c = getopt_long (argc, argv, "ifmcMo:q", long_opts, &idx))) {
+    while (-1 != (c = getopt_long (argc, argv, "ifmcMo:qV", long_opts, &idx))) {
       switch (c) {
       case 'i': near_units = far_units = UNITS_INCHES;	break;
       case 'f': near_units = far_units = UNITS_FT;	break;
@@ -177,18 +178,9 @@ main (int argc, char *argv[], char * env[])
       case 'o': coc = atof (optarg);	break;
       case 'q': query = 1; break;
       case 'L': list_all (NULL, NULL);    err = 2; break;
-      case 'C':
-	{
-	  //	  if (maker)  free (maker);
-	  maker  = strdupa (optarg);
-	}
-	break;
-      case 'T':
-	{
-	  //	  if (model) free (model);
-	  model = strdupa (optarg);
-	}
-	break;
+      case 'C': maker = strdupa (optarg); break;
+      case 'T': model = strdupa (optarg); break;
+      case 'V': fprintf (stderr, "Version %s\n", VERSION); err = 2; break;
       case '?': err = 1; break;
       }
     }

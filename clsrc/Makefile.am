@@ -4,7 +4,7 @@ dof_SOURCES = dof.c \
 
 DISTCLEANFILES = .deps/*.P
 
-dof_CFLAGS = -std=c99 -Wall -Werror 
+dof_CFLAGS = -std=c99 -Wall -Werror -DVERSION=\"$(PACKAGE_VERSION)\"
 
 clean-local: clean-local-check
 .PHONY: clean-local-check
